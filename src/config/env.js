@@ -4,7 +4,11 @@ dotenv.config();
 export const config = {
   port: process.env.PORT || 3000,
   nodeEnv: process.env.NODE_ENV || "development",
-  mongodbUri: process.env.MONGODB_URI || "mongodb://localhost:27017/whatsapp-community",
+
+  supabase: {
+    url: process.env.SUPABASE_URL,
+    serviceKey: process.env.SUPABASE_SERVICE_KEY,
+  },
 
   aliexpress: {
     appKey: process.env.ALIEXPRESS_APP_KEY,

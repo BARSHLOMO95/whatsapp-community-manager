@@ -50,7 +50,7 @@ export default function MessageLogsPage() {
           >
             <option value="">All Groups</option>
             {groups?.map((g) => (
-              <option key={g._id} value={g._id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{g.name}</option>
             ))}
           </select>
           <select
@@ -105,33 +105,33 @@ export default function MessageLogsPage() {
             </thead>
             <tbody className="divide-y">
               {logs.map((log) => (
-                <tr key={log._id} className="hover:bg-gray-50">
+                <tr key={log.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-xs text-gray-500">
-                    {log.sentAt
-                      ? format(new Date(log.sentAt), "dd/MM/yyyy HH:mm")
-                      : format(new Date(log.createdAt), "dd/MM/yyyy HH:mm")}
+                    {log.sent_at
+                      ? format(new Date(log.sent_at), "dd/MM/yyyy HH:mm")
+                      : format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      {log.productId?.imageUrl && (
+                      {log.products?.image_url && (
                         <img
-                          src={log.productId.imageUrl}
+                          src={log.products.image_url}
                           alt=""
                           className="w-8 h-8 rounded object-cover"
                         />
                       )}
                       <span className="truncate max-w-[150px]">
-                        {log.productId?.name || "Unknown"}
+                        {log.products?.name || "Unknown"}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3">{log.groupId?.name || "Unknown"}</td>
-                  <td className="px-4 py-3 text-xs capitalize">{log.triggerType}</td>
+                  <td className="px-4 py-3">{log.groups?.name || "Unknown"}</td>
+                  <td className="px-4 py-3 text-xs capitalize">{log.trigger_type}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={log.status} />
                   </td>
                   <td className="px-4 py-3 text-xs text-red-500 max-w-[200px] truncate">
-                    {log.errorMessage || "-"}
+                    {log.error_message || "-"}
                   </td>
                 </tr>
               ))}

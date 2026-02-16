@@ -1,9 +1,92 @@
 import cron from "node-cron";
-import Schedule from "../models/Schedule.js";
-import Product from "../models/Product.js";
-import MessageLog from "../models/MessageLog.js";
+import { supabase } from "../config/db.js";
 import { greenApiService } from "./greenApi.js";
 import { formatProductMessage } from "./messageFormatter.js";
+
+async function selectProducts(schedule) {
+  let query = supabase.from("products").select("*").eq("is_active", true);
+
+  if (schedule.category_filter?.length > 0) {
+    query = query.in("category", schedule.category_filter);
+  }
+
+  const limit = schedule.products_per_slot || 1;
+
+  switch (schedule.product_selection_strategy) {
+    case "least_sent":
+      query = query.order("times_sent", { ascending: true }).order("created_at", { ascending: false });
+      break;
+    case "newest":
+      query = query.order("created_at", { ascending: false });
+      break;
+    case "round_robin":
+    default:
+      query = query.order("last_sent_at", { ascending: true, nullsFirst: true }).order("created_at", { ascending: true });
+      break;
+  }
+
+  const { data } = await query.limit(limit);
+  return data || [];
+}
+
+export async function executeSchedule(schedule, group) {
+  const products = await selectProducts(schedule);
+
+  for (const product of products) {
+    const { data: log } = await supabase
+      .from("message_logs")
+      .insert({
+        group_id: group.id,
+        product_id: product.id,
+        schedule_id: schedule.id,
+        status: "pending",
+        trigger_type: "scheduled",
+      })
+      .select()
+      .single();
+
+    try {
+      const prodData = {
+        name: product.name, price: product.price, originalPrice: product.original_price,
+        currency: product.currency, description: product.description,
+        imageUrl: product.image_url, affiliateLink: product.affiliate_link,
+      };
+
+      const messageText = formatProductMessage(prodData, {
+        prefix: group.message_prefix, suffix: group.message_suffix, language: group.language,
+      });
+
+      const result = await greenApiService.sendProductMessage(group.chat_id, prodData, {
+        prefix: group.message_prefix, suffix: group.message_suffix, language: group.language,
+      });
+
+      await supabase.from("message_logs").update({
+        status: "sent", green_api_message_id: result.idMessage,
+        message_content: messageText, sent_at: new Date().toISOString(),
+      }).eq("id", log.id);
+
+      await supabase.from("products").update({
+        times_sent: product.times_sent + 1, last_sent_at: new Date().toISOString(),
+      }).eq("id", product.id);
+
+      await supabase.from("groups").update({
+        total_messages_sent: group.total_messages_sent + 1,
+        last_message_sent_at: new Date().toISOString(),
+      }).eq("id", group.id);
+
+      await supabase.from("schedules").update({
+        last_executed_at: new Date().toISOString(),
+      }).eq("id", schedule.id);
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    } catch (err) {
+      await supabase.from("message_logs").update({
+        status: "failed", error_message: err.message,
+      }).eq("id", log.id);
+      console.error(`Failed to send product ${product.id} to group ${group.chat_id}:`, err.message);
+    }
+  }
+}
 
 class SchedulerService {
   constructor() {
@@ -17,10 +100,7 @@ class SchedulerService {
   }
 
   stop() {
-    if (this.cronJob) {
-      this.cronJob.stop();
-      console.log("Scheduler stopped");
-    }
+    if (this.cronJob) { this.cronJob.stop(); }
   }
 
   async tick() {
@@ -33,126 +113,29 @@ class SchedulerService {
       const currentMinute = now.getMinutes();
       const currentDay = now.getDay();
 
-      const schedules = await Schedule.find({ isActive: true }).populate(
-        "groupId"
-      );
+      const { data: schedules } = await supabase
+        .from("schedules")
+        .select("*, groups(*)")
+        .eq("is_active", true);
 
-      for (const schedule of schedules) {
-        if (
-          schedule.daysOfWeek.length > 0 &&
-          !schedule.daysOfWeek.includes(currentDay)
-        ) {
-          continue;
-        }
+      for (const schedule of schedules || []) {
+        if (schedule.days_of_week?.length > 0 && !schedule.days_of_week.includes(currentDay)) continue;
 
-        const matchingTime = schedule.sendTimes.find(
+        const matchingTime = (schedule.send_times || []).find(
           (t) => t.hour === currentHour && t.minute === currentMinute
         );
         if (!matchingTime) continue;
 
-        const group = schedule.groupId;
-        if (!group || !group.isActive) continue;
+        const group = schedule.groups;
+        if (!group || !group.is_active) continue;
 
-        await this.executeSchedule(schedule, group);
+        await executeSchedule(schedule, group);
       }
     } catch (err) {
       console.error("Scheduler tick error:", err);
     } finally {
       this.isProcessing = false;
     }
-  }
-
-  async executeSchedule(schedule, group) {
-    const products = await this.selectProducts(schedule);
-
-    for (const product of products) {
-      const log = await MessageLog.create({
-        groupId: group._id,
-        productId: product._id,
-        scheduleId: schedule._id,
-        status: "pending",
-        triggerType: "scheduled",
-      });
-
-      try {
-        const messageText = formatProductMessage(product, {
-          prefix: group.settings?.messagePrefix,
-          suffix: group.settings?.messageSuffix,
-          language: group.settings?.language,
-        });
-
-        const result = await greenApiService.sendProductMessage(
-          group.chatId,
-          product,
-          {
-            prefix: group.settings?.messagePrefix,
-            suffix: group.settings?.messageSuffix,
-            language: group.settings?.language,
-          }
-        );
-
-        log.status = "sent";
-        log.greenApiMessageId = result.idMessage;
-        log.messageContent = messageText;
-        log.sentAt = new Date();
-        await log.save();
-
-        product.timesSent += 1;
-        product.lastSentAt = new Date();
-        await product.save();
-
-        group.totalMessagesSent += 1;
-        group.lastMessageSentAt = new Date();
-        await group.save();
-
-        schedule.lastExecutedAt = new Date();
-        await schedule.save();
-
-        // Delay between messages to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      } catch (err) {
-        log.status = "failed";
-        log.errorMessage = err.message;
-        await log.save();
-        console.error(
-          `Failed to send product ${product._id} to group ${group.chatId}:`,
-          err.message
-        );
-      }
-    }
-  }
-
-  async selectProducts(schedule) {
-    const query = { isActive: true };
-
-    if (schedule.categoryFilter && schedule.categoryFilter.length > 0) {
-      query.category = { $in: schedule.categoryFilter };
-    }
-
-    if (schedule.productSelectionStrategy === "random") {
-      return Product.aggregate([
-        { $match: query },
-        { $sample: { size: schedule.productsPerSlot } },
-      ]);
-    }
-
-    let sortCriteria;
-    switch (schedule.productSelectionStrategy) {
-      case "least_sent":
-        sortCriteria = { timesSent: 1, createdAt: -1 };
-        break;
-      case "newest":
-        sortCriteria = { createdAt: -1 };
-        break;
-      case "round_robin":
-      default:
-        sortCriteria = { lastSentAt: 1, createdAt: 1 };
-        break;
-    }
-
-    return Product.find(query)
-      .sort(sortCriteria)
-      .limit(schedule.productsPerSlot);
   }
 }
 

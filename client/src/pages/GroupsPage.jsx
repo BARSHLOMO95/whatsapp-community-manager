@@ -13,17 +13,29 @@ import { Plus, Edit2, Trash2, Send, X, Users } from "lucide-react";
 
 function GroupForm({ group, onClose, onSave }) {
   const [form, setForm] = useState(
-    group || {
-      name: "",
-      chatId: "",
-      description: "",
-      settings: {
-        maxMessagesPerDay: 3,
-        language: "he",
-        messagePrefix: "",
-        messageSuffix: "",
-      },
-    }
+    group
+      ? {
+          name: group.name || "",
+          chatId: group.chat_id || "",
+          description: group.description || "",
+          settings: {
+            maxMessagesPerDay: group.max_messages_per_day || 3,
+            language: group.language || "he",
+            messagePrefix: group.message_prefix || "",
+            messageSuffix: group.message_suffix || "",
+          },
+        }
+      : {
+          name: "",
+          chatId: "",
+          description: "",
+          settings: {
+            maxMessagesPerDay: 3,
+            language: "he",
+            messagePrefix: "",
+            messageSuffix: "",
+          },
+        }
   );
 
   const handleSubmit = (e) => {
@@ -166,7 +178,7 @@ export default function GroupsPage() {
 
   const handleSave = async (formData) => {
     if (editGroup) {
-      await updateMutation.mutateAsync({ id: editGroup._id, data: formData });
+      await updateMutation.mutateAsync({ id: editGroup.id, data: formData });
     } else {
       await createMutation.mutateAsync(formData);
     }
@@ -207,7 +219,7 @@ export default function GroupsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groups.map((group) => (
-            <div key={group._id} className="bg-white rounded-xl shadow-sm border p-5">
+            <div key={group.id} className="bg-white rounded-xl shadow-sm border p-5">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-100 rounded-lg">
@@ -215,10 +227,10 @@ export default function GroupsPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">{group.name}</h3>
-                    <p className="text-xs text-gray-400 font-mono">{group.chatId}</p>
+                    <p className="text-xs text-gray-400 font-mono">{group.chat_id}</p>
                   </div>
                 </div>
-                <StatusBadge status={group.isActive ? "active" : "inactive"} />
+                <StatusBadge status={group.is_active ? "active" : "inactive"} />
               </div>
 
               {group.description && (
@@ -226,17 +238,17 @@ export default function GroupsPage() {
               )}
 
               <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
-                <div>Messages sent: <b>{group.totalMessagesSent}</b></div>
-                <div>Language: <b>{group.settings?.language || "he"}</b></div>
-                <div>Max/day: <b>{group.settings?.maxMessagesPerDay || 3}</b></div>
-                {group.lastMessageSentAt && (
-                  <div>Last: <b>{new Date(group.lastMessageSentAt).toLocaleDateString()}</b></div>
+                <div>Messages sent: <b>{group.total_messages_sent}</b></div>
+                <div>Language: <b>{group.language || "he"}</b></div>
+                <div>Max/day: <b>{group.max_messages_per_day || 3}</b></div>
+                {group.last_message_sent_at && (
+                  <div>Last: <b>{new Date(group.last_message_sent_at).toLocaleDateString()}</b></div>
                 )}
               </div>
 
               <div className="flex gap-2 pt-3 border-t">
                 <button
-                  onClick={() => handleTest(group._id)}
+                  onClick={() => handleTest(group.id)}
                   disabled={testMutation.isPending}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs text-green-700 bg-green-50 rounded-lg hover:bg-green-100"
                 >
@@ -249,7 +261,7 @@ export default function GroupsPage() {
                   <Edit2 size={12} /> Edit
                 </button>
                 <button
-                  onClick={() => setDeleteId(group._id)}
+                  onClick={() => setDeleteId(group.id)}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
                 >
                   <Trash2 size={12} /> Delete

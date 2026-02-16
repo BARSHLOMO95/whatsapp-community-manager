@@ -24,12 +24,12 @@ function ScheduleForm({ schedule, groups, onClose, onSave }) {
   const [form, setForm] = useState(
     schedule
       ? {
-          groupId: schedule.groupId?._id || schedule.groupId,
-          sendTimes: schedule.sendTimes || [{ hour: 10, minute: 0 }],
-          daysOfWeek: schedule.daysOfWeek || [],
-          productsPerSlot: schedule.productsPerSlot || 1,
-          productSelectionStrategy: schedule.productSelectionStrategy || "least_sent",
-          isActive: schedule.isActive !== false,
+          groupId: schedule.groups?.id || schedule.group_id || "",
+          sendTimes: schedule.send_times || [{ hour: 10, minute: 0 }],
+          daysOfWeek: schedule.days_of_week || [],
+          productsPerSlot: schedule.products_per_slot || 1,
+          productSelectionStrategy: schedule.product_selection_strategy || "least_sent",
+          isActive: schedule.is_active !== false,
         }
       : {
           groupId: "",
@@ -92,7 +92,7 @@ function ScheduleForm({ schedule, groups, onClose, onSave }) {
             >
               <option value="">Select group...</option>
               {groups?.map((g) => (
-                <option key={g._id} value={g._id}>{g.name}</option>
+                <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
           </div>
@@ -240,7 +240,7 @@ export default function SchedulesPage() {
 
   const handleSave = async (formData) => {
     if (editSchedule) {
-      await updateMutation.mutateAsync({ id: editSchedule._id, data: formData });
+      await updateMutation.mutateAsync({ id: editSchedule.id, data: formData });
     } else {
       await createMutation.mutateAsync(formData);
     }
@@ -293,16 +293,16 @@ export default function SchedulesPage() {
             </thead>
             <tbody className="divide-y">
               {schedules.map((schedule) => (
-                <tr key={schedule._id} className="hover:bg-gray-50">
+                <tr key={schedule.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Clock size={14} className="text-green-600" />
-                      {schedule.groupId?.name || "Unknown"}
+                      {schedule.groups?.name || "Unknown"}
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {schedule.sendTimes?.map((t, i) => (
+                      {schedule.send_times?.map((t, i) => (
                         <span key={i} className="bg-gray-100 px-2 py-0.5 rounded text-xs">
                           {String(t.hour).padStart(2, "0")}:{String(t.minute).padStart(2, "0")}
                         </span>
@@ -310,20 +310,20 @@ export default function SchedulesPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs">
-                    {schedule.daysOfWeek?.length === 0
+                    {schedule.days_of_week?.length === 0
                       ? "Every day"
-                      : schedule.daysOfWeek.map((d) => DAYS[d]).join(", ")}
+                      : schedule.days_of_week.map((d) => DAYS[d]).join(", ")}
                   </td>
                   <td className="px-4 py-3 text-xs capitalize">
-                    {schedule.productSelectionStrategy?.replace("_", " ")}
+                    {schedule.product_selection_strategy?.replace("_", " ")}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={schedule.isActive ? "active" : "inactive"} />
+                    <StatusBadge status={schedule.is_active ? "active" : "inactive"} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end">
                       <button
-                        onClick={() => handleExecute(schedule._id)}
+                        onClick={() => handleExecute(schedule.id)}
                         disabled={executeMutation.isPending}
                         className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                         title="Run now"
@@ -338,7 +338,7 @@ export default function SchedulesPage() {
                         <Edit2 size={14} />
                       </button>
                       <button
-                        onClick={() => setDeleteId(schedule._id)}
+                        onClick={() => setDeleteId(schedule.id)}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded"
                         title="Delete"
                       >

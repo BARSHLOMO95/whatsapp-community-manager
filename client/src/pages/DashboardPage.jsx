@@ -83,23 +83,23 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {recent?.map((msg) => (
                 <div
-                  key={msg._id}
+                  key={msg.id}
                   className="flex items-center justify-between py-2 border-b last:border-0"
                 >
                   <div className="flex items-center gap-3">
-                    {msg.productId?.imageUrl && (
+                    {msg.products?.image_url && (
                       <img
-                        src={msg.productId.imageUrl}
+                        src={msg.products.image_url}
                         alt=""
                         className="w-10 h-10 rounded object-cover"
                       />
                     )}
                     <div>
                       <p className="text-sm font-medium">
-                        {msg.productId?.name || "Unknown"}
+                        {msg.products?.name || "Unknown"}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {msg.groupId?.name || "Unknown group"}
+                        {msg.groups?.name || "Unknown group"}
                       </p>
                     </div>
                   </div>

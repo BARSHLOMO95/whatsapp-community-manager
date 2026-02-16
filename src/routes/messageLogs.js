@@ -1,46 +1,37 @@
 import { Router } from "express";
-import MessageLog from "../models/MessageLog.js";
+import { supabase } from "../config/db.js";
 
 const router = Router();
 
 // GET /api/message-logs
 router.get("/", async (req, res, next) => {
   try {
-    const {
-      page = 1,
-      limit = 20,
-      groupId,
-      productId,
-      status,
-      startDate,
-      endDate,
-    } = req.query;
+    const { page = 1, limit = 20, groupId, productId, status, startDate, endDate } = req.query;
+    const offset = (page - 1) * limit;
 
-    const query = {};
-    if (groupId) query.groupId = groupId;
-    if (productId) query.productId = productId;
-    if (status) query.status = status;
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
+    let query = supabase
+      .from("message_logs")
+      .select("*, groups(id, name, chat_id), products(id, name, image_url, price)", { count: "exact" });
 
-    const total = await MessageLog.countDocuments(query);
-    const logs = await MessageLog.find(query)
-      .populate("groupId", "name chatId")
-      .populate("productId", "name imageUrl price")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+    if (groupId) query = query.eq("group_id", groupId);
+    if (productId) query = query.eq("product_id", productId);
+    if (status) query = query.eq("status", status);
+    if (startDate) query = query.gte("created_at", startDate);
+    if (endDate) query = query.lte("created_at", endDate);
+
+    const { data: logs, count, error } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + Number(limit) - 1);
+
+    if (error) throw error;
 
     res.json({
       logs,
       pagination: {
-        total,
+        total: count,
         page: Number(page),
         limit: Number(limit),
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(count / limit),
       },
     });
   } catch (error) {
@@ -51,12 +42,13 @@ router.get("/", async (req, res, next) => {
 // GET /api/message-logs/:id
 router.get("/:id", async (req, res, next) => {
   try {
-    const log = await MessageLog.findById(req.params.id)
-      .populate("groupId", "name chatId")
-      .populate("productId", "name imageUrl price affiliateLink")
-      .populate("scheduleId");
-    if (!log) return res.status(404).json({ error: "Log not found" });
-    res.json(log);
+    const { data, error } = await supabase
+      .from("message_logs")
+      .select("*, groups(id, name, chat_id), products(id, name, image_url, price, affiliate_link), schedules(*)")
+      .eq("id", req.params.id)
+      .single();
+    if (error) return res.status(404).json({ error: "Log not found" });
+    res.json(data);
   } catch (error) {
     next(error);
   }

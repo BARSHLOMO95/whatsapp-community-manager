@@ -1,7 +1,5 @@
 import express from "express";
 import cors from "cors";
-import { config } from "../src/config/env.js";
-import { connectDB } from "../src/config/db.js";
 import { errorHandler } from "../src/middleware/errorHandler.js";
 import productRoutes from "../src/routes/products.js";
 import groupRoutes from "../src/routes/groups.js";
@@ -14,16 +12,6 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-
-// Connect to MongoDB (reuses connection across invocations)
-let dbConnected = false;
-app.use(async (req, res, next) => {
-  if (!dbConnected) {
-    await connectDB();
-    dbConnected = true;
-  }
-  next();
-});
 
 // API routes
 app.use("/api/products", productRoutes);

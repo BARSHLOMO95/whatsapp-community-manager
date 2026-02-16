@@ -13,16 +13,27 @@ import { Plus, Edit2, Trash2, Send, Search, X } from "lucide-react";
 
 function ProductForm({ product, onClose, onSave }) {
   const [form, setForm] = useState(
-    product || {
-      name: "",
-      price: "",
-      originalPrice: "",
-      currency: "USD",
-      description: "",
-      imageUrl: "",
-      affiliateLink: "",
-      category: "general",
-    }
+    product
+      ? {
+          name: product.name || "",
+          price: product.price || "",
+          originalPrice: product.original_price || "",
+          currency: product.currency || "USD",
+          description: product.description || "",
+          imageUrl: product.image_url || "",
+          affiliateLink: product.affiliate_link || "",
+          category: product.category || "general",
+        }
+      : {
+          name: "",
+          price: "",
+          originalPrice: "",
+          currency: "USD",
+          description: "",
+          imageUrl: "",
+          affiliateLink: "",
+          category: "general",
+        }
   );
 
   const handleSubmit = (e) => {
@@ -171,7 +182,7 @@ function SendDialog({ product, groups, onClose, onSend }) {
         >
           <option value="">Select a group...</option>
           {groups?.map((g) => (
-            <option key={g._id} value={g._id}>
+            <option key={g.id} value={g.id}>
               {g.name}
             </option>
           ))}
@@ -213,7 +224,7 @@ export default function ProductsPage() {
 
   const handleSave = async (formData) => {
     if (editProduct) {
-      await updateMutation.mutateAsync({ id: editProduct._id, data: formData });
+      await updateMutation.mutateAsync({ id: editProduct.id, data: formData });
     } else {
       await createMutation.mutateAsync(formData);
     }
@@ -227,7 +238,7 @@ export default function ProductsPage() {
   };
 
   const handleSend = async (groupId) => {
-    await sendMutation.mutateAsync({ productId: sendProduct._id, groupId });
+    await sendMutation.mutateAsync({ productId: sendProduct.id, groupId });
     setSendProduct(null);
   };
 
@@ -266,9 +277,9 @@ export default function ProductsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {products.map((product) => (
-            <div key={product._id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div key={product.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
               <img
-                src={product.imageUrl}
+                src={product.image_url}
                 alt={product.name}
                 className="w-full h-40 object-cover"
               />
@@ -276,9 +287,9 @@ export default function ProductsPage() {
                 <h3 className="font-semibold text-sm truncate">{product.name}</h3>
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">{product.description}</p>
                 <div className="mt-2 flex items-center gap-2">
-                  {product.originalPrice && (
+                  {product.original_price && (
                     <span className="text-xs text-gray-400 line-through">
-                      {product.originalPrice} {product.currency}
+                      {product.original_price} {product.currency}
                     </span>
                   )}
                   <span className="text-sm font-bold text-green-600">
@@ -287,7 +298,7 @@ export default function ProductsPage() {
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t">
                   <span className="text-xs text-gray-400">
-                    Sent {product.timesSent}x
+                    Sent {product.times_sent}x
                   </span>
                   <div className="flex gap-1">
                     <button
@@ -305,7 +316,7 @@ export default function ProductsPage() {
                       <Edit2 size={14} />
                     </button>
                     <button
-                      onClick={() => setDeleteId(product._id)}
+                      onClick={() => setDeleteId(product.id)}
                       className="p-1.5 text-red-600 hover:bg-red-50 rounded"
                       title="Delete"
                     >
